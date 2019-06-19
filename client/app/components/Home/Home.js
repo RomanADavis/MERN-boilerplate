@@ -1,107 +1,268 @@
 import React, { Component } from 'react';
 import 'whatwg-fetch';
+import { getFromStorage, setInStorage } from '../../utils/storage'
 
 class Home extends Component {
   constructor(props) {
-    super(props);
+    super(props)
 
     this.state = {
-      counters: []
-    };
-
-    this.newCounter = this.newCounter.bind(this);
-    this.incrementCounter = this.incrementCounter.bind(this);
-    this.decrementCounter = this.decrementCounter.bind(this);
-    this.deleteCounter = this.deleteCounter.bind(this);
-
-    this._modifyCounter = this._modifyCounter.bind(this);
-  }
-
-  componentDidMount() {
-    fetch('/api/counters')
-      .then(res => res.json())
-      .then(json => {
-        this.setState({
-          counters: json
-        });
-      });
-  }
-
-  newCounter() {
-    fetch('/api/counters', { method: 'POST' })
-      .then(res => res.json())
-      .then(json => {
-        let data = this.state.counters;
-        data.push(json);
-
-        this.setState({
-          counters: data
-        });
-      });
-  }
-
-  incrementCounter(index) {
-    const id = this.state.counters[index]._id;
-
-    fetch(`/api/counters/${id}/increment`, { method: 'PUT' })
-      .then(res => res.json())
-      .then(json => {
-        this._modifyCounter(index, json);
-      });
-  }
-
-  decrementCounter(index) {
-    const id = this.state.counters[index]._id;
-
-    fetch(`/api/counters/${id}/decrement`, { method: 'PUT' })
-      .then(res => res.json())
-      .then(json => {
-        this._modifyCounter(index, json);
-      });
-  }
-
-  deleteCounter(index) {
-    const id = this.state.counters[index]._id;
-
-    fetch(`/api/counters/${id}`, { method: 'DELETE' })
-      .then(_ => {
-        this._modifyCounter(index, null);
-      });
-  }
-
-  _modifyCounter(index, data) {
-    let prevData = this.state.counters;
-
-    if (data) {
-      prevData[index] = data;
-    } else {
-      prevData.splice(index, 1);
+      isLoading: true,
+      token: '',
+      signUpError: '',
+      signInError: '',
+      masterError: '',
+      signInEmail: '',
+      signInPassword: '',
+      signUpFirstName: '',
+      signUpLastName: '',
+      signUpEmail: '',
+      signUpPassword: ''
     }
 
-    this.setState({
-      counters: prevData
-    });
+    this.signInEmailChange = this.signInEmailChange.bind(this)
+    this.signInPasswordChange = this.signInPasswordChange.bind(this)
+    this.signUpFirstNameChange = this.signUpFirstNameChange.bind(this)
+    this.signUpLastNameChange = this.signUpLastNameChange.bind(this)
+    this.signUpEmailChange = this.signUpEmailChange.bind(this)
+    this.signUpPasswordChange = this.signUpPasswordChange.bind(this)
+    this.signUp = this.signUp.bind(this)
+    this.signIn = this.signIn.bind(this)
+    this.logout = this.logout.bind(this)
+  }
+
+  componentDidMount(){
+    // fetch token
+    const storage = getFromStorage('the_main_app')
+
+    if(storage && storage.token){
+      const { token } = storage
+
+      fetch('/api/account/verify?token=' + token)
+        .then(result => result.json())
+          .then(json => {
+            if(json.success){
+              this.setState({ token: token })
+            }
+          })
+    }
+
+    this.setState({isLoading: false})
+  }
+
+  signInEmailChange(event){
+    this.setState({signInEmail: event.target.value})
+  }
+
+  signInPasswordChange(event){
+    this.setState({signInPassword: event.target.value})
+  }
+
+  signUpFirstNameChange(event){
+    this.setState({signUpFirstName: event.target.value})
+  }
+
+  signUpLastNameChange(event){
+    this.setState({signUpLastName: event.target.value})
+  }
+
+  signUpEmailChange(event){
+    this.setState({signUpEmail: event.target.value})
+  }
+
+  signUpPasswordChange(event){
+    this.setState({signUpPassword: event.target.value})
+  }
+
+  signIn(event){
+    const { signInEmail, signInPassword } = this.state
+    
+    this.setState({isLoading: true})
+
+    fetch('/api/account/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: signInEmail,
+        password: signInPassword
+      })
+    })
+      .then(result => result.json())  
+      .then(json => {
+        if(json.success){
+          setInStorage('the_main_app', { token: json.token })
+          this.setState({
+            token: json.token,
+            signInError: json.message,
+            isLoading: false,
+            signInEmail: '',
+            signInPassword: '',
+            email: '',
+            password: ''
+          })
+        }else{
+          this.setState({
+            signInError: json.message,
+            isLoading: false
+          })
+        }
+      })
+  }
+
+  signUp(event){
+    const {
+      signUpFirstName,
+      signUpLastName,
+      signUpEmail,
+      signUpPassword
+    } = this.state
+
+    this.setState({ isLoading: true })
+
+    fetch('api/account/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        firstName: signUpFirstName,
+        lastName: signUpLastName,
+        email: signUpEmail,
+        password: signUpPassword
+      })
+    })
+      .then(result => result.json())
+      .then(json => {
+        if(json.success){
+          this.setState({
+            signUpError: json.message,
+            isLoading: false,
+            signUpFirstName: '',
+            signUpLastName: '',
+            email: '',
+            password: ''
+          })
+        }else{
+          this.setState({
+            signUpError: json.message,
+            isLoading: false
+          })
+        }
+      })
+  }
+
+  logout(){
+    this.setState({isLoading: true})
+    const storage = getFromStorage('the_main_app')
+    if(storage && storage.token){
+      const { token } = storage
+      fetch('/api/account/logout?token=' + token)
+        .then(result => result.json())
+        .then(json => {
+          if(json.success){
+            this.setState({
+              token: '',
+              isLoading: false
+            })
+          }else{
+            isLoading: false
+          }
+        })
+    }else{
+      this.setState({isLoading: false})
+    }
   }
 
   render() {
+    const { 
+      isLoading, 
+      token,
+      signInError,
+      signUpError,
+      signInEmail,
+      signInPassword, 
+      signUpFirstName,
+      signUpLastName,
+      signUpEmail,
+      signUpPassword
+    } = this.state
+
+    if(isLoading){
+      return (
+        <div>
+          <p>Loading...</p>
+        </div>
+      )
+    }
+
+    if(!token){
+      return(
+        <div>
+          <div>
+          {
+            (signInError) ? (<p>{signInError}</p>) : ''
+          }
+            <p>Sign In</p>
+            <input 
+              type='email' 
+              placeholder='Email'
+              value={signInEmail}
+              onChange={this.signInEmailChange}
+            />
+            <br />
+            <input 
+              type='password' 
+              placeholder='Password'
+              value={signInPassword}
+              onChange={this.signInPasswordChange} 
+            />
+            <br />
+            <button onClick={this.signIn}>Sign In</button>
+          </div>
+          <br />
+          <br />
+          <div>
+            {
+              (signUpError) ? <p>{signUpError}</p> : ''
+            }
+            <p>Sign Up</p>
+            <input 
+              type='text' 
+              placeholder='First Name' 
+              value={signUpFirstName}
+              onChange={this.signUpFirstNameChange} 
+            /> 
+            <br />
+            <input 
+              type='text' 
+              placeholder='Last Name' 
+              value={signUpLastName} 
+              onChange={this.signUpLastNameChange}
+            /> 
+            <br />
+            <input 
+              type='email' 
+              placeholder='a@b.com' 
+              value={signUpEmail}
+              onChange={this.signUpEmailChange} 
+            /> 
+            <br />
+            <input 
+              type='password' 
+              placeholder='Password' 
+              value={signUpPassword}
+              onChange={this.signUpPasswordChange}
+            /> 
+            <br />
+            <button onClick={this.signUp}>Sign Up</button>
+          </div>
+        </div>
+      )
+    }
     return (
-      <>
-        <p>Counters:</p>
-
-        <ul>
-          { this.state.counters.map((counter, i) => (
-            <li key={i}>
-              <span>{counter.count} </span>
-              <button onClick={() => this.incrementCounter(i)}>+</button>
-              <button onClick={() => this.decrementCounter(i)}>-</button>
-              <button onClick={() => this.deleteCounter(i)}>x</button>
-            </li>
-          )) }
-        </ul>
-
-        <button onClick={this.newCounter}>New counter</button>
-      </>
-    );
+      <div>
+        <p>Account</p>
+        <button onClick={this.logout}>Logout</button>
+      </div>
+    )
   }
 }
 
