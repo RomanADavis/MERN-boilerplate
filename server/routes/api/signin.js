@@ -170,7 +170,7 @@ module.exports = (app) => {
     })
   })
 
-  app.get('/api/account/logout', (request, result, next) => {
+  app.get('/api/account/signout', (request, result, next) => {
     // Get token
     const { query } = request
     const { token } = query // ?token=test
